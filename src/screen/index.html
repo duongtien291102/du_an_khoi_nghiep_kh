@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <title>Tạo mã QR cho bàn</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <style>
+    body { font-family: sans-serif; padding: 20px; }
+    input, button { font-size: 16px; padding: 6px; margin: 4px 0; }
+    #qrcode canvas { margin-top: 12px; }
+  </style>
+</head>
+<body>
+  <h2>Tạo mã QR</h2>
+  <label>Nhập số bàn: </label>
+  <input id="table" value="T01" placeholder="VD: T05" />
+  <button id="make">Tạo QR</button>
+  <div id="qrcode"></div>
+
+ <!-- Giữ nguyên qrcode.js và jquery.min.js -->
+<script src="../../jquery.min.js"></script>
+<script src="../../qrcode.min.js"></script>
+<script>
+const base = "http://192.168.1.81:5500/src/screen/order.html";
+  const makeBtn = document.getElementById("make");
+  const qrDiv = document.getElementById("qrcode");
+
+  makeBtn.onclick = () => {
+    const table = document.getElementById("table").value.trim() || "T01";
+    const url = `${base}?table=${encodeURIComponent(table)}`;
+    qrDiv.innerHTML = "";
+
+    // Dùng class QRCode (phiên bản cũ)
+    new QRCode(qrDiv, {
+      text: url,
+      width: 200,
+      height: 200
+    });
+  };
+</script>

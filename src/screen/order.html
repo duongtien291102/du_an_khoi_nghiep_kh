@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Menu đặt món</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: "Poppins", sans-serif; }
+    body { background: #fafafa; padding: 16px; }
+    h2 { text-align: center; margin-bottom: 16px; font-size: 20px; color: #333; }
+    .menu-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 12px; }
+    .card { background: #fff; border-radius: 12px; box-shadow: 0 2px 6px rgba(0,0,0,0.1); overflow: hidden; cursor: pointer; }
+    .card img { width: 100%; height: 120px; object-fit: cover; }
+    .card-body { padding: 10px; text-align: center; }
+    .card-body h3 { font-size: 16px; margin-bottom: 6px; color: #222; }
+    .card-body p { font-size: 14px; color: #666; }
+    .card.selected { outline: 3px solid #007bff; }
+    #order-btn { display: block; width: 100%; margin-top: 20px; padding: 12px; background: #007bff; color: white; border: none; border-radius: 8px; font-size: 16px; cursor: pointer; }
+    #order-btn:hover { background: #0056c7; }
+  </style>
+</head>
+<body>
+  <h2 id="table-name">Bàn: --</h2>
+  <div class="menu-grid" id="menu"></div>
+  <button id="order-btn">Đặt hàng</button>
+
+  <script type="module">
+const baseAPI = "http://192.168.1.81:5555/api/products";
+
+  const params = new URLSearchParams(window.location.search);
+  const table = params.get("table") || "Không xác định";
+  document.getElementById("table-name").textContent = "Bàn: " + table;
+
+  const menuDiv = document.getElementById("menu");
+
+  // Lấy danh sách sản phẩm từ backend
+  async function loadMenu() {
+    const res = await fetch(baseAPI);
+    const menuItems = await res.json();
+
+    menuItems.forEach((item) => {
+      const div = document.createElement("div");
+      div.className = "card";
+      div.innerHTML = `
+        <img src="${item.img}" alt="${item.name}">
+        <div class="card-body">
+          <h3>${item.name}</h3>
+          <p>${item.price.toLocaleString()} VND</p>
+        </div>
+      `;
+      div.onclick = () => div.classList.toggle("selected");
+      menuDiv.appendChild(div);
+    });
+  }
+
+  loadMenu();
+
+  document.getElementById("order-btn").onclick = () => {
+    const selected = Array.from(document.querySelectorAll(".card.selected"));
+    if (selected.length === 0) return alert("Vui lòng chọn ít nhất một món!");
+    const orders = selected.map((c) => c.querySelector("h3").textContent);
+    const payload = { table, orders };
+    console.log("Đơn hàng gửi đi:", payload);
+    alert(`✅ Đặt hàng thành công cho ${table}!\nMón: ${orders.join(", ")}`);
+  };
+</script>
+
+</body>
+</html>
