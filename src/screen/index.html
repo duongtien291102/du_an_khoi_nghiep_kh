@@ -17,24 +17,31 @@
   <button id="make">Tạo QR</button>
   <div id="qrcode"></div>
 
- <!-- Giữ nguyên qrcode.js và jquery.min.js -->
-<script src="../../jquery.min.js"></script>
-<script src="../../qrcode.min.js"></script>
-<script>
-const base = "http://192.168.1.81:5500/src/screen/order.html";
-  const makeBtn = document.getElementById("make");
-  const qrDiv = document.getElementById("qrcode");
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+  <script>
+    const qrDiv = document.getElementById("qrcode");
+    const makeBtn = document.getElementById("make");
 
-  makeBtn.onclick = () => {
-    const table = document.getElementById("table").value.trim() || "T01";
-    const url = `${base}?table=${encodeURIComponent(table)}`;
-    qrDiv.innerHTML = "";
+    makeBtn.onclick = async () => {
+      const table = document.getElementById("table").value.trim() || "T01";
+      const localIp = await fetch("https://api.ipify.org?format=json")
+        .then(r => r.json())
+        .then(d => d.ip)
+        .catch(() => "localhost");
 
-    // Dùng class QRCode (phiên bản cũ)
-    new QRCode(qrDiv, {
-      text: url,
-      width: 200,
-      height: 200
-    });
-  };
-</script>
+      const port = window.location.port || "4000";
+      const base = `http://${localIp}:${port}/order.html`;
+      const url = `${base}?table=${encodeURIComponent(table)}`;
+
+      qrDiv.innerHTML = "";
+      new QRCode(qrDiv, {
+        text: url,
+        width: 200,
+        height: 200
+      });
+
+      console.log("✅ QR chứa:", url);
+    };
+  </script>
+</body>
+</html>

@@ -9,7 +9,8 @@
     body { background: #fafafa; padding: 16px; }
     h2 { text-align: center; margin-bottom: 16px; font-size: 20px; color: #333; }
     .menu-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 12px; }
-    .card { background: #fff; border-radius: 12px; box-shadow: 0 2px 6px rgba(0,0,0,0.1); overflow: hidden; cursor: pointer; }
+    .card { background: #fff; border-radius: 12px; box-shadow: 0 2px 6px rgba(0,0,0,0.1); overflow: hidden; cursor: pointer; transition: transform .1s ease-in-out; }
+    .card:hover { transform: scale(1.03); }
     .card img { width: 100%; height: 120px; object-fit: cover; }
     .card-body { padding: 10px; text-align: center; }
     .card-body h3 { font-size: 16px; margin-bottom: 6px; color: #222; }
@@ -25,45 +26,56 @@
   <button id="order-btn">Đặt hàng</button>
 
   <script type="module">
-const baseAPI = "http://192.168.1.81:5555/api/products";
+    // 🔧 1. Tự lấy IP server từ URL hiện tại
+    const { protocol, hostname, port } = window.location;
+    const baseAPI = `${protocol}//${hostname}:${port}/api/products`;
 
-  const params = new URLSearchParams(window.location.search);
-  const table = params.get("table") || "Không xác định";
-  document.getElementById("table-name").textContent = "Bàn: " + table;
+    // 🧭 2. Lấy số bàn từ query
+    const params = new URLSearchParams(window.location.search);
+    const table = params.get("table") || "Không xác định";
+    document.getElementById("table-name").textContent = "Bàn: " + table;
 
-  const menuDiv = document.getElementById("menu");
+    const menuDiv = document.getElementById("menu");
 
-  // Lấy danh sách sản phẩm từ backend
-  async function loadMenu() {
-    const res = await fetch(baseAPI);
-    const menuItems = await res.json();
+    // 🍱 3. Lấy danh sách sản phẩm từ backend
+    async function loadMenu() {
+      try {
+        const res = await fetch(baseAPI);
+        if (!res.ok) throw new Error(`Không thể tải menu (${res.status})`);
+        const menuItems = await res.json();
 
-    menuItems.forEach((item) => {
-      const div = document.createElement("div");
-      div.className = "card";
-      div.innerHTML = `
-        <img src="${item.img}" alt="${item.name}">
-        <div class="card-body">
-          <h3>${item.name}</h3>
-          <p>${item.price.toLocaleString()} VND</p>
-        </div>
-      `;
-      div.onclick = () => div.classList.toggle("selected");
-      menuDiv.appendChild(div);
-    });
-  }
+        menuItems.forEach((item) => {
+          const div = document.createElement("div");
+          div.className = "card";
+          div.innerHTML = `
+            <img src="${item.img}" alt="${item.name}">
+            <div class="card-body">
+              <h3>${item.name}</h3>
+              <p>${item.price.toLocaleString()} VND</p>
+            </div>
+          `;
+          div.onclick = () => div.classList.toggle("selected");
+          menuDiv.appendChild(div);
+        });
+      } catch (err) {
+        console.error("Lỗi load menu:", err);
+        menuDiv.innerHTML = `<p style="text-align:center;color:red;">Không tải được menu 😢<br>${err.message}</p>`;
+      }
+    }
 
-  loadMenu();
+    loadMenu();
 
-  document.getElementById("order-btn").onclick = () => {
-    const selected = Array.from(document.querySelectorAll(".card.selected"));
-    if (selected.length === 0) return alert("Vui lòng chọn ít nhất một món!");
-    const orders = selected.map((c) => c.querySelector("h3").textContent);
-    const payload = { table, orders };
-    console.log("Đơn hàng gửi đi:", payload);
-    alert(`✅ Đặt hàng thành công cho ${table}!\nMón: ${orders.join(", ")}`);
-  };
-</script>
+    // 🛒 4. Gửi đơn hàng (hiện chỉ log + alert)
+    document.getElementById("order-btn").onclick = () => {
+      const selected = Array.from(document.querySelectorAll(".card.selected"));
+      if (selected.length === 0) return alert("❗ Vui lòng chọn ít nhất một món!");
+      const orders = selected.map((c) => c.querySelector("h3").textContent);
+      const payload = { table, orders };
 
+      console.log("Đơn hàng gửi đi:", payload);
+      alert(`✅ Đặt hàng thành công cho ${table}!\nMón: ${orders.join(", ")}`);
+
+    };
+  </script>
 </body>
 </html>
