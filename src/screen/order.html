@@ -9,26 +9,35 @@
     body { background: #fafafa; padding: 16px; }
     h2 { text-align: center; margin-bottom: 16px; font-size: 20px; color: #333; }
     .menu-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 12px; }
-    .card { background: #fff; border-radius: 12px; box-shadow: 0 2px 6px rgba(0,0,0,0.1); overflow: hidden; cursor: pointer; transition: transform .1s ease-in-out; }
-    .card:hover { transform: scale(1.03); }
+    .card { background: #fff; border-radius: 12px; box-shadow: 0 2px 6px rgba(0,0,0,0.1); overflow: hidden; transition: all .2s ease-in-out; position: relative; }
+    .card.has-quantity { outline: 3px solid #007bff; }
     .card img { width: 100%; height: 120px; object-fit: cover; }
     .card-body { padding: 10px; text-align: center; }
     .card-body h3 { font-size: 16px; margin-bottom: 6px; color: #222; }
-    .card-body p { font-size: 14px; color: #666; }
-    .card.selected { outline: 3px solid #007bff; }
-    #order-btn { display: block; width: 100%; margin-top: 20px; padding: 12px; background: #007bff; color: white; border: none; border-radius: 8px; font-size: 16px; cursor: pointer; }
-    #order-btn:hover { background: #0056c7; }
+    .card-body p { font-size: 14px; color: #666; margin-bottom: 8px; }
+    .quantity-control { display: flex; align-items: center; justify-content: center; gap: 8px; }
+    .quantity-control button { width: 28px; height: 28px; border: none; background: #007bff; color: white; border-radius: 50%; cursor: pointer; font-size: 16px; }
+    .quantity-control button:hover { background: #0056c7; }
+    .quantity-control span { min-width: 24px; font-weight: bold; color: #007bff; }
+    .total-section { position: sticky; bottom: 0; background: white; padding: 16px; margin: 20px -16px -16px; box-shadow: 0 -2px 10px rgba(0,0,0,0.1); border-radius: 12px 12px 0 0; }
+    .total-price { text-align: center; font-size: 20px; font-weight: bold; color: #007bff; margin-bottom: 12px; }
+    #order-btn { display: block; width: 100%; padding: 12px; background: #28a745; color: white; border: none; border-radius: 8px; font-size: 16px; cursor: pointer; font-weight: bold; }
+    #order-btn:hover { background: #218838; }
+    #order-btn:disabled { background: #ccc; cursor: not-allowed; }
   </style>
 </head>
 <body>
   <h2 id="table-name">Bàn: --</h2>
   <div class="menu-grid" id="menu"></div>
-  <button id="order-btn">Đặt hàng</button>
+  <div class="total-section">
+    <div class="total-price" id="total-price">Tổng: 0 VND</div>
+    <button id="order-btn">Đặt hàng</button>
+  </div>
 
   <script type="module">
     // 🔧 1. Tự lấy IP server từ URL hiện tại
     const { protocol, hostname, port } = window.location;
-    const baseAPI = `${protocol}//${hostname}:${port}/api/products`;
+    const baseAPI = `${protocol}//${hostname}:${port}/api`;
 
     // 🧭 2. Lấy số bàn từ query
     const params = new URLSearchParams(window.location.search);
@@ -36,45 +45,158 @@
     document.getElementById("table-name").textContent = "Bàn: " + table;
 
     const menuDiv = document.getElementById("menu");
+    const totalPriceEl = document.getElementById("total-price");
+    const orderBtn = document.getElementById("order-btn");
+    
+    // Lưu trữ menu items và số lượng
+    let menuItems = [];
+    let cart = {}; // { itemId: quantity }
 
     // 🍱 3. Lấy danh sách sản phẩm từ backend
     async function loadMenu() {
       try {
-        const res = await fetch(baseAPI);
+        const res = await fetch(`${baseAPI}/products`);
         if (!res.ok) throw new Error(`Không thể tải menu (${res.status})`);
-        const menuItems = await res.json();
+        const data = await res.json();
+        
+        // Chuyển đổi format từ MongoDB (_id) sang format dễ dùng (id)
+        // Xử lý cả 2 trường hợp: price (từ KH) hoặc sell (từ Admin)
+        menuItems = data.map(item => ({
+          id: item._id,
+          name: item.name,
+          price: item.price || item.sell || 0,
+          img: item.img || 'https://via.placeholder.com/150?text=No+Image',
+          code: item.code,
+          stock: item.stock
+        }));
+
+        if (menuItems.length === 0) {
+          menuDiv.innerHTML = `<p style="text-align:center;color:#999;grid-column:1/-1;">Chưa có sản phẩm nào trong menu 🍽️</p>`;
+          return;
+        }
 
         menuItems.forEach((item) => {
           const div = document.createElement("div");
           div.className = "card";
+          div.dataset.id = item.id;
           div.innerHTML = `
-            <img src="${item.img}" alt="${item.name}">
+            <img src="${item.img}" alt="${item.name}" onerror="this.src='https://via.placeholder.com/150?text=No+Image'">
             <div class="card-body">
               <h3>${item.name}</h3>
-              <p>${item.price.toLocaleString()} VND</p>
+              <p class="price">${(item.price || 0).toLocaleString()} VND</p>
+              <div class="quantity-control">
+                <button class="btn-minus">−</button>
+                <span class="quantity">0</span>
+                <button class="btn-plus">+</button>
+              </div>
             </div>
           `;
-          div.onclick = () => div.classList.toggle("selected");
+          
+          const btnPlus = div.querySelector(".btn-plus");
+          const btnMinus = div.querySelector(".btn-minus");
+          const quantitySpan = div.querySelector(".quantity");
+          
+          btnPlus.onclick = (e) => {
+            e.stopPropagation();
+            const currentQty = cart[item.id] || 0;
+            cart[item.id] = currentQty + 1;
+            quantitySpan.textContent = cart[item.id];
+            div.classList.add("has-quantity");
+            updateTotal();
+          };
+          
+          btnMinus.onclick = (e) => {
+            e.stopPropagation();
+            const currentQty = cart[item.id] || 0;
+            if (currentQty > 0) {
+              cart[item.id] = currentQty - 1;
+              quantitySpan.textContent = cart[item.id];
+              if (cart[item.id] === 0) {
+                div.classList.remove("has-quantity");
+                delete cart[item.id];
+              }
+              updateTotal();
+            }
+          };
+          
           menuDiv.appendChild(div);
         });
       } catch (err) {
         console.error("Lỗi load menu:", err);
-        menuDiv.innerHTML = `<p style="text-align:center;color:red;">Không tải được menu 😢<br>${err.message}</p>`;
+        menuDiv.innerHTML = `<p style="text-align:center;color:red;grid-column:1/-1;">Không tải được menu 😢<br>${err.message}</p>`;
       }
+    }
+
+    // 💰 Cập nhật tổng tiền
+    function updateTotal() {
+      let total = 0;
+      for (const [itemId, quantity] of Object.entries(cart)) {
+        const item = menuItems.find(m => m.id == itemId);
+        if (item) {
+          total += item.price * quantity;
+        }
+      }
+      totalPriceEl.textContent = "Tổng: " + total.toLocaleString() + " VND";
     }
 
     loadMenu();
 
-    // 🛒 4. Gửi đơn hàng (hiện chỉ log + alert)
-    document.getElementById("order-btn").onclick = () => {
-      const selected = Array.from(document.querySelectorAll(".card.selected"));
-      if (selected.length === 0) return alert("❗ Vui lòng chọn ít nhất một món!");
-      const orders = selected.map((c) => c.querySelector("h3").textContent);
-      const payload = { table, orders };
+    // 🛒 4. Gửi đơn hàng lên server
+    orderBtn.onclick = async () => {
+      const orderItems = Object.entries(cart).filter(([_, qty]) => qty > 0);
+      
+      if (orderItems.length === 0) {
+        return alert("❗ Vui lòng chọn ít nhất một món!");
+      }
 
-      console.log("Đơn hàng gửi đi:", payload);
-      alert(`✅ Đặt hàng thành công cho ${table}!\nMón: ${orders.join(", ")}`);
+      const orders = orderItems.map(([itemId, quantity]) => {
+        const item = menuItems.find(m => m.id == itemId);
+        return {
+          id: itemId,
+          name: item.name,
+          price: item.price,
+          quantity: quantity
+        };
+      });
 
+      const payload = { 
+        table, 
+        orders,
+        total: orders.reduce((sum, o) => sum + (o.price * o.quantity), 0)
+      };
+
+      try {
+        orderBtn.disabled = true;
+        orderBtn.textContent = "Đang gửi...";
+        
+        const res = await fetch(`${baseAPI}/orders`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload)
+        });
+
+        if (!res.ok) throw new Error(`Lỗi server (${res.status})`);
+        
+        const result = await res.json();
+        console.log("✅ Đơn hàng đã gửi:", result);
+        
+        alert(`✅ Đặt hàng thành công cho ${table}!\n\nMón đã đặt:\n${orders.map(o => `${o.name} x${o.quantity}`).join('\n')}\n\nTổng: ${payload.total.toLocaleString()} VND`);
+        
+        // Reset giỏ hàng
+        cart = {};
+        document.querySelectorAll(".card").forEach(card => {
+          card.classList.remove("has-quantity");
+          card.querySelector(".quantity").textContent = "0";
+        });
+        updateTotal();
+        
+      } catch (err) {
+        console.error("❌ Lỗi gửi đơn hàng:", err);
+        alert(`❌ Không thể gửi đơn hàng!\n${err.message}`);
+      } finally {
+        orderBtn.disabled = false;
+        orderBtn.textContent = "Đặt hàng";
+      }
     };
   </script>
 </body>

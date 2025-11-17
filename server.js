@@ -5,6 +5,8 @@ import path from "path";
 import { fileURLToPath } from "url";
 import connectDB from "./src/config/db.js";
 import productRoutes from "./src/routes/productRoutes.js";
+import orderRoutes from "./src/routes/orderRoutes.js";
+import { displayServerInfo } from "./src/utils/network.js";
 
 dotenv.config();
 connectDB();
@@ -35,10 +37,17 @@ app.get("/order.html", (req, res) => {
 
 // 🧠 Route API
 app.use("/api/products", productRoutes);
+app.use("/api/orders", orderRoutes);
 
 // ✅ Khởi chạy server
 const PORT = process.env.PORT || 4000;
-app.listen(PORT, () => {
-  console.log(`🚀 Server chạy tại http://localhost:${PORT}`);
-  console.log(`📁 Serving static files from: ${path.join(__dirname, "src", "screen")}`);
+
+app.listen(PORT, '0.0.0.0', () => {
+  displayServerInfo(PORT, 'Server Khách Hàng');
+  console.log('📋 API:');
+  console.log('   Products: /api/products');
+  console.log('   Orders:   /api/orders');
+  console.log('📄 Pages:');
+  console.log('   Trang chủ: /');
+  console.log('   Đặt món:   /order.html?table=T01\n');
 });

@@ -22,16 +22,24 @@
     const qrDiv = document.getElementById("qrcode");
     const makeBtn = document.getElementById("make");
 
-    makeBtn.onclick = async () => {
-      const table = document.getElementById("table").value.trim() || "T01";
-      const localIp = await fetch("https://api.ipify.org?format=json")
-        .then(r => r.json())
-        .then(d => d.ip)
-        .catch(() => "localhost");
+    makeBtn.onclick = () => {
+      const table = document.getElementById("table").value.trim();
+      
+      if (!table) {
+        alert("Vui lòng nhập số bàn!");
+        return;
+      }
 
-      const port = window.location.port || "4000";
-      const base = `http://${localIp}:${port}/order.html`;
-      const url = `${base}?table=${encodeURIComponent(table)}`;
+      // Sử dụng hostname và port hiện tại của trang web
+      const host = window.location.hostname;
+      const port = window.location.port;
+      const protocol = window.location.protocol;
+      
+      // Tạo URL với tham số table
+      const baseUrl = port 
+        ? `${protocol}//${host}:${port}/order.html`
+        : `${protocol}//${host}/order.html`;
+      const url = `${baseUrl}?table=${encodeURIComponent(table)}`;
 
       qrDiv.innerHTML = "";
       new QRCode(qrDiv, {
